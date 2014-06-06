@@ -1,0 +1,56 @@
+#!/bin/sh
+
+##############################################################################
+##                                                                          ##
+##  Groovy JVM Bootstrap for UN*X                                           ##
+##                                                                          ##
+##  use -cp or -classpath just as in java to use a custom classpath         ##
+##                                                                          ##
+##############################################################################
+
+##
+## $Revision$
+## $Date$
+##
+
+# reset GROOVY_HOME
+export GROOVY_HOME=
+GROOVY_APP_NAME=Groovy
+
+# resolve links - $0 may be a soft-link
+PRG="$0"
+
+while [ -h "$PRG" ] ; do
+    ls=`ls -ld "$PRG"`
+    link=`expr "$ls" : '.*-> \(.*\)$'`
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=`dirname "$PRG"`/"$link"
+    fi
+done
+
+DIRNAME=`dirname "$PRG"`
+PREFIX=`cd $DIRNAME/..;pwd`
+
+#. ${PREFIX}/etc/java.env
+# JAVA_OPTS=
+# CLASSPATH=
+
+case `uname -s` in
+AIX|Linux|SunOS)
+	;;
+HP-UX)
+	JAVA_OPTS="${JAVA_OPTS} -d64"
+	;;
+*)
+	echo "warning: no quirks for `uname -s`"
+#	exit 1
+	;;
+esac
+
+export CLASSPATH
+
+. "$DIRNAME/startGroovy"
+
+startGroovy groovy.ui.GroovyMain "$@"

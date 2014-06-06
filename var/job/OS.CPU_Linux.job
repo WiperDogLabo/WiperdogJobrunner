@@ -1,0 +1,146 @@
+/**
+ * Monitoring CPU statistics.<br/>
+ * <p>
+ * Global average activities  among  all processors are also reported.<br/>
+ * Need to install mpstat with command: sudo apt-get install mpstat.<br/>
+ * </p>
+ * @targetVersion Ubuntu 12.04
+ * @return get informations on the use of cpu.
+ * @returnParam UserLevelPct Show the percentage of CPU utilization that occurred while executing at the user level (application).
+ * @returnParam UserLevelWithNicePriPct Show the percentage of CPU utilization that occurred while executing at the user level with nice priority.
+ * @returnParam SystemLevelPct Show the percentage of CPU utilization that occurred while executing at the system level (kernel). Note that this does not include the time spent servicing interrupts or softirqs.
+ * @returnParam SystemWithIOPct Show the percentage of time that the CPU or CPUs were idle during which the system had an outstanding disk I/O request.
+ * @returnParam TimetoInterruptsPct Show the percentage of time spent by the CPU or CPUs to service interrupts.
+ * @returnParam TimetoSoftwareInterruptPct Show the percentage of time spent by the CPU or CPUs to service softirqs.
+ * @returnParam StealPct Show the percentage of time spent in involuntary wait by the virtual CPU or CPUs while the hypervisor was servicing another virtual processor.
+ * @returnParam IdlePct Show the percentage of time that the CPU or CPUs were idle and the system did not have an outstanding disk I/O request.
+ * @returnParam UsedPct The percentage of CPU used.
+ * @returnParam TotalInterruptsReceivedRateVal Show the total number of interrupts received per second by the CPU or CPUs.
+ */
+JOB = [name:"OS.CPU_Linux"]
+
+FETCHACTION = {
+	def command = "mpstat"
+	def resultData = [:]
+	def listData = []
+	def listRows = []
+	//data remote
+	def output = procRunner.procExecute(command,false).out
+	output.eachLine{line->
+		def row = line.trim().split(" ").findAll{!it.trim().equals("")}
+		if(row.size() > 0){
+			listRows.add(row)
+		}
+	}
+	//remove row title
+	listRows.remove(0)
+	if(listRows.size() == 2){
+		for(int i=3; i< listRows[0].size(); i++){
+			def data = Double.parseDouble(listRows[1][i])
+			if(listRows[0][i] == "%user"){
+				if(data != null ){
+					resultData['UserLevelPct'] = data
+				} else {
+					resultData['UserLevelPct'] = null
+				}
+			}
+			if(listRows[0][i] == "%nice"){
+				if(data != null ){
+					resultData['UserLevelWithNicePriPct'] = data
+				} else {
+					resultData['UserLevelWithNicePriPct'] = null	
+				}			
+			}
+			if(listRows[0][i] == "%sys"){
+				if(data != null ){
+					resultData['SystemLevelPct'] = data
+				} else {
+					resultData['SystemLevelPct'] = null	
+				}							
+			}
+			if(listRows[0][i] == "%iowait"){
+				if(data != null ){
+					resultData['SystemWithIOPct'] = data
+				} else {
+					resultData['SystemWithIOPct'] = null	
+				}					
+
+			}
+			if(listRows[0][i] == "%irq"){
+				if(data != null ){
+					resultData['TimetoInterruptsPct'] = data
+				} else {
+					resultData['TimetoInterruptsPct'] = null	
+				}	
+			}
+			if(listRows[0][i] == "%soft"){
+				if(data != null ){
+					resultData['TimetoSoftwareInterruptPct'] = data
+				} else {
+					resultData['TimetoSoftwareInterruptPct'] = null	
+				}					
+			}
+			if(listRows[0][i] == "%steal"){
+				resultData['StealPct'] = data
+				if(data != null ){
+					resultData['StealPct'] = data
+				} else {
+					resultData['StealPct'] = null	
+				}						
+			}
+			if(listRows[0][i] == "%idle"){
+				if(data != null ){
+					resultData['IdlePct'] = data
+				} else {
+					resultData['IdlePct'] = null	
+				}				
+			}
+			if(listRows[0][i] == "intr/s"){
+				if(data != null ){
+					resultData['TotalInterruptsReceivedRateVal'] = data
+				} else {
+					resultData['TotalInterruptsReceivedRateVal'] = null	
+				}				
+			}
+		}
+		resultData['UsedPct'] = 0
+		if(resultData['UserLevelPct'] != null){
+			resultData['UsedPct'] = resultData['UserLevelPct']
+		} 
+		if(resultData['UserLevelWithNicePriPct'] != null){
+			resultData['UsedPct'] += resultData['UserLevelWithNicePriPct']
+		}
+		if(resultData['SystemLevelPct'] != null){
+			resultData['UsedPct'] += resultData['SystemLevelPct']
+		}	
+		if(resultData['SystemWithIOPct'] != null){
+			resultData['UsedPct'] += resultData['SystemWithIOPct']
+		}	
+		if(resultData['StealPct'] != null){
+			resultData['UsedPct'] += resultData['StealPct']
+		}			
+	}
+	listData.add(resultData)
+	return listData
+}
+
+KEYEXPR = ['_sequence':['NumberTransfersRateVal','NumberBlockReadRateVal','NumberBlockWriteRateVal']]
+KEYEXPR._unit = ["UserLevelPct":"%", "UserLevelWithNicePriPct":"%", "SystemLevelPct":"%", "SystemWithIOPct":"%", "TimetoInterruptsPct":"%", "TimetoSoftwareInterruptPct":"%", "StealPct":"%", "IdlePct":"%", "UsedPct":"%", "TotalInterruptsReceivedRateVal":"count/sec"]
+KEYEXPR._chart = [
+	[
+        "type": "line",
+        "name": "Information Usage CPU",
+        "chart_columns": ["UsedPct", "IdlePct"]
+    ],
+    [
+        "type": "line",
+        "name": "Total Interrupts Received",
+        "chart_columns": ["TotalInterruptsReceivedRateVal"]
+    ]
+]
+
+SENDTYPE = "Store"
+RESOURCEID = "Linux/CPU"
+DEST = parameters.dest
+OSINFO = parameters.osinfo
+MONITORINGTYPE = '@OS'

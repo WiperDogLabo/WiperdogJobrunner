@@ -1,0 +1,73 @@
+/**
+ * Monitoring used memory by OS.<br/>
+ * <p>
+ * Display amount of free and used memory in the system.<br/>
+ * </p>
+ * @targetVersion Windows Xp Professional, Version 2002, Service Pack 3
+ * @return get information of memory in use by OS.
+ * @returnParam FreeMemoryKB The memory not in use by OS.
+ * @returnParam TotalMemorySizeKB The total memory in use by OS.
+ * @returnParam UsedMemoryKB The memory in use by OS.
+ * @returnParam UsedMemoryPct The percentage of memory in use by OS.
+ */
+JOB = [name:"OS.Memory_Usage_Windows"]
+FETCHACTION = {
+	def cmdGetPhysMem= [type:"wmic",commandStr:"OS GET FreePhysicalMemory,TotalVisibleMemorySize /format:csv"]
+	def dataPhysMem =  procRunner.procExecute(cmdGetPhysMem,true).out
+	def checkHeader = false
+	def headers = []
+	def rawData = []
+	//process raw data
+	dataPhysMem.eachLine{
+		if(!checkHeader){
+			if(it.trim() != "") {
+				headers = (it.split(",") as List)
+				checkHeader = true
+			}
+		} else {
+			if(it.trim() != "") {
+				rawData.add((it.split(",") as List))
+			}
+		}
+	}
+   def listData = []
+   //Merge headers and data
+   rawData.each {
+		def elemData = [:]
+		def data = [:]
+		for(int i = 1 ; i < it.size() ; i++ ){			
+			try{
+				elemData[headers[i]] = it[i].toLong()
+			} catch(Exception ex){
+				elemData[headers[i]] = it[i]
+			}
+			
+		}
+		data["TotalMemorySizeKB"] = elemData["TotalVisibleMemorySize"]
+		data["FreeMemorySizeKB"] = elemData["FreePhysicalMemory"]
+		data["UsedMemorySizeKB"] = elemData["TotalVisibleMemorySize"] - elemData["FreePhysicalMemory"]
+		data["UsedMemoryPct"] = Math.round(data["UsedMemorySizeKB"]/data["TotalMemorySizeKB"]*100)
+		
+		listData.add(data)
+   }
+   return listData
+}
+KEYEXPR = [_sequence:["FreeMemorySizeKB","UsedMemorySizeKB","UsedMemoryPct"]]
+KEYEXPR._unit = [ "FreeMemorySizeKB" : "KB", "UsedMemorySizeKB": "KB", "UsedMemoryPct" : "%" ]
+KEYEXPR._chart = [
+	[
+		type:"line",
+		name:"Memory Usage Windows",
+		chart_columns:["UsedMemoryPct"]
+	],
+	[	
+		type:"pie",
+		name:"Memory Usage Windows",
+		chart_columns:["FreeMemorySizeKB","UsedMemorySizeKB"]
+	] 
+]
+DEST = parameters.dest
+OSINFO = parameters.osinfo
+MONITORINGTYPE = '@OS'
+RESOURCEID = "Windows/Memory"
+SENDTYPE = "Store"
