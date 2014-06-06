@@ -24,6 +24,7 @@
         <include>sqljdbc4.jar</include>
         <include>mariadb-java-client-1.1.7.jar</include>
         <include>postgresql-9.3-1101.jdbc4.jar</include>
+        <include>netty-servlet-bridge-1.0.0-SNAPSHOT.jar</include>
       </includes>
     </fileSet>
     <!-- to include emptry log folder -->
